@@ -1,0 +1,563 @@
+							===================================================================
+							PRÁTICA 01 — AMBIENTE DE DESENVOLVIMENTO E PRIMEIRO SISTEMA NA BBB
+							===================================================================
+
+1. INSTALANDO O CROSS-COMPILADOR
+
+1. CRIAR AS PASTAS
+
+mkdir lab
+cd lab/
+mkdir toolchain
+
+
+2. APÓS A CRIAÇÃO DO DIRETÓRIO É PRECISO DESCOMPACTAR O ARQUIVO DENTRO DE TOOLCHAIN, DIGITANDO O SEGUINTE COMANDO:
+
+wget https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz
+
+depois:
+
+tar Jxvf arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz -C toolchain/
+
+
+3. ADICIONANDO O CAMINHO NO PATH: 
+
+cd ~		(necessário estar na raiz ou seja  no diretório HOME)
+
+Abra o arquivo .bashrc:
+gedit .bashrc	(caso tenha o gedit instalado)
+nano .bashrc	(caso não funcione o comando com gedit)
+
+Adicione a seguinte linha no final do arquivo:
+export PATH=$PATH:~/lab/toolchain/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/
+
+PRESTE ATENÇÃO NO CAMINHO DA PASTA
+
+Após salvar o arquivo, execute:
+source ~/.bashrc
+
+Esse comando recarrega o arquivo .bashrc sem precisar reiniciar o terminal.
+
+
+4. VERIFICANDO O TOOLCHAIN
+
+Digite:
+arm-none-eabi-
+
+e pressione TAB duas vezes.
+
+Se o PATH estiver configurado corretamente, o terminal exibirá os comandos disponíveis do toolchain.
+
+Também é possível verificar usando:
+arm-none-eabi-gcc --version
+
+
+5. RESUMINDO:
+
+1) Cross-compilador e PATH
+
+O PDF pede o toolchain arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi dentro de lab/toolchain e a adição do caminho do bin ao PATH via .bashrc.
+Rode:
+ls /home/ana-ribeiro/lab/toolchain/
+ls /home/ana-ribeiro/lab/toolchain/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin
+echo $PATH
+arm-none-eabi-gcc --version
+which arm-none-eabi-gcc
+
+O que deve acontecer:
+
+- a pasta do toolchain deve existir
+- a subpasta bin deve conter arm-none-eabi-gcc
+- o echo $PATH deve mostrar esse caminho
+- arm-none-eabi-gcc --version deve responder normalmente
+- which arm-none-eabi-gcc deve apontar para esse diretório
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+2. CONFIGURAR REDE ETHERNET PARA ACESSAR COM O SERVIDOR
+
+1.VERIFICAR INTERFACE DE REDE
+Primeiro veja o nome da interface Ethernet:
+
+ip addr ou ifconfig
+
+deve ver algo parecido com:
+
+enp3s0
+eth0
+eno1
+
+
+2.VERIFICAR SE O IP FOI CONFIGURADO
+*faça esse passo com a beagle conectada e ligada
+use: ip addr show enp2s0
+
+(troque enp2s0 pelo nome da sua interface)
+
+Você deve ver algo parecido com:
+
+2: enp3s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 0c:cc:47:ea:eb:5b brd ff:ff:ff:ff:ff:ff
+    inet 10.4.1.1/24 brd 10.4.1.255 scope global noprefixroute enp3s0
+    
+    
+3. VERIFICAR SE O CABO ETHERNET FOI DETECTADO
+*novamente teste esse comando com a Beagle ligada
+use:
+
+ethtool enp3s0
+(troque enp3s0 pelo nome da sua interface)
+
+Procure:
+Link detected: yes
+
+Se aparecer: no
+
+o cabo pode está desconectado ou a beagle pode está desligada.
+
+
+4.VERIFICAR SE O TFTP ESTÁ OUVINDO
+
+Muito importante:
+
+sudo netstat -lnp | grep :69
+
+ou:
+
+sudo ss -lunp | grep :69
+
+Você deve ver:
+udp 0 0 0.0.0.0:69
+
+Isso confirma que o TFTP está ativo.
+
+
+5.VERIFICAR PERMISSÕES
+
+ls -l /tftpboot/download.bin
+
+Idealmente:
+
+-rwxrwxrwx
+
+
+6.TESTE COMPLETO DA REDE
+
+Essa sequência valida praticamente tudo:
+
+ip addr (execute esses com a bbb ligada)
+ping 10.4.1.2	(execute esses com a bbb ligada)
+sudo netstat -lnp | grep :69
+systemctl status tftpd-hpa	(O serviço deve aparecer como active (running).)
+ls -l /tftpboot
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+3. CONFIGURANDO MINICOM PARA ACESSAR A BBB
+
+1. CASO AINDA NÃO TENHA FEITO, USE:
+sudo apt-get install minicom
+
+
+2. CONFERINDO A CONEXÃO TTL
+sudo dmesg
+
+
+3. PRECISA O CABO TTL ESTA CONECTADO PARA CONSEGUIR CONFIGURAR O MINICOM
+sudo minicom -s
+
+
+4. NAS OPÇÕES DO MINICOM ESCOLHA A OPÇÃO:
+
+Opção Configuração da porta serial
+
+verifique se estar como mostrado abaixo, se não estiver coloque:
+
+: /dev/ttyUSB0
+: /var/lock
+:
+:
+:115200 8N1
+: Nao
+: Nao
+
+depois escolhas em seguida as opções:
+Salvar as configurações como dfl
+Sair do Minicom
+
+Como sair do Minicom via comando
+Ctrl+a
+Depois aperta:
+x
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+4. O PC DEVE SER CONFIGURADO COM UM SERVIDOR TFTP
+
+Para que a BeagleBone Black consiga carregar aplicações pela rede utilizando o U-Boot, o computador deve possuir um servidor TFTP configurado corretamente.
+Nesta prática foi utilizado o servidor: tftpd-hpa e não o xinetd.
+
+1. INSTALAÇÃO DO SERVIDOR TFTP
+
+Instale o servidor utilizando:
+
+sudo apt-get install tftpd-hpa
+
+2. VERIFICAR SE O PACOTE FOI INSTALADO
+
+Use:
+
+dpkg -l | grep tftpd-hpa
+
+Resultado esperado:
+
+ii  tftpd-hpa
+
+
+3. VERIFICAR O DIRETÓRIO DO TFTP
+
+O diretório padrão utilizado nesta prática é:
+
+/tftpboot
+
+Verifique se ele existe:
+
+ls /
+
+ou:
+
+ls /tftpboot
+
+Resultado esperado:
+
+download.bin
+hda.txt
+app
+
+
+4. VER CONFIGURAÇÃO DO SERVIDOR
+
+use:
+cat /etc/default/tftpd-hpa
+
+A saida deve ser algo assim:
+# /etc/default/tftpd-hpa
+TFTP_USERNAME="tftp"
+TFTP_DIRECTORY="/tftpboot"
+TFTP_ADDRESS="0.0.0.0:69"
+TFTP_OPTIONS="--secure --create"
+
+
+5. VERIFICAR SE O SERVIÇO ESTÁ ATIVO
+
+Execute:
+
+systemctl status tftpd-hpa
+
+Resultado esperado:
+
+active (running)
+
+
+6. INICIAR, REINICIAR OU PARAR O SERVIDOR
+Iniciar
+sudo systemctl start tftpd-hpa
+
+Reiniciar
+sudo systemctl restart tftpd-hpa
+
+Parar
+sudo systemctl stop tftpd-hpa
+
+
+7. VERIFICAR SE A PORTA TFTP ESTÁ ABERTA
+O protocolo TFTP utiliza a porta:
+
+69/UDP
+
+Verifique utilizando:
+sudo netstat -lnp | grep :69
+
+ou:
+
+sudo ss -lunp | grep :69
+
+Resultado esperado:
+udp 0 0 0.0.0.0:69
+
+Isso confirma que o servidor TFTP está ouvindo conexões.
+
+
+8. VERIFICAR PERMISSÕES DO DIRETÓRIO TFTP
+
+Verifique as permissões utilizando:
+
+ls -l /tftpboot
+
+ou:
+
+ls -ld /tftpboot
+
+Caso necessário, ajuste as permissões:
+
+sudo chmod -R 777 /tftpboot
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CASO A PASTA /TFTPBOOT SEJA APAGADA
+
+Se a pasta utilizada pelo servidor TFTP for removida acidentalmente, o servidor deixará de funcionar corretamente e a BBB não conseguirá carregar os arquivos pela rede.
+
+O erro mais comum no U-Boot será:
+
+TFTP error: 'File not found' (1)
+
+ou o serviço tftpd-hpa pode falhar ao iniciar.
+
+
+1. Recriar a pasta /tftpboot
+
+Use:
+sudo mkdir /tftpboot
+
+
+2. Ajustar permissões
+
+Depois de recriar a pasta, ajuste as permissões:
+sudo chmod -R 777 /tftpboot
+
+
+3. Verificar se a pasta foi criada corretamente
+
+Use:
+ls -ld /tftpboot
+
+Resultado esperado:
+drwxrwxrwx
+
+
+4. Verificar configuração do servidor
+
+Confira se o tftpd-hpa ainda aponta para /tftpboot:
+cat /etc/default/tftpd-hpa
+
+Deve conter:
+TFTP_DIRECTORY="/tftpboot"
+
+
+5. Reiniciar o servidor TFTP
+
+Após recriar a pasta:
+sudo systemctl restart tftpd-hpa
+
+
+6. Verificar status do servidor
+
+Use:
+systemctl status tftpd-hpa
+
+Resultado esperado:
+active (running)
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+5. REALIZAR UM TESTE DE VALIDAÇÃO DO SERVIÇO TFTP
+
+O objetivo desta etapa é verificar se o servidor TFTP foi configurado corretamente e consegue transferir arquivos pela rede.
+Nesta prática foi utilizado o servidor: tftpd-hpa
+
+1. Criar o arquivo de teste
+
+Crie o arquivo hda.txt dentro do diretório /tftpboot:
+sudo touch /tftpboot/testee.txt
+
+
+2. Adicionar conteúdo ao arquivo
+echo "somente um teste..." | sudo tee /tftpboot/testee.txt
+
+Como verificar
+
+Depois:
+cat /tftpboot/testee.txt
+
+deve mostrar:
+somente um teste...
+
+
+3. Ajustar permissões
+sudo chmod 777 /tftpboot/testee.txt
+
+
+4. Verificar se o arquivo foi criado corretamente
+use:
+ls -l /tftpboot/
+
+Resultado esperado:
+-rwxrwxrwx 1 root root XX data testee.txt
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+RESULTADO ESPERADO FINAL
+
+Após configurar:
+- o cross-compilador
+- a rede Ethernet
+- o Minicom
+- o servidor TFTP
+
+e compilar a aplicação exemplo:
+
+#include <stdio.h>
+int main(){
+printf("Hello World");
+return 0;
+}
+
+com o Makefile:
+
+CC=arm-none-eabi-gcc
+
+all: directories app
+
+directories:
+	mkdir -p bin obj src
+
+app: obj/main.o
+	$(CC) obj/main.o -lc -lrdimon -o bin/app
+
+obj/main.o: src/main.c
+	$(CC) -c src/main.c -Iinc -o obj/main.o
+
+clean:
+	rm -rf obj/*.o bin/app
+	
+Execute na pasta da pratica onde tem a main e o makefile:
+make
+
+O executável será criado em:
+bin/app
+
+
+VERIFICANDO A ARQUITETURA DO EXECUTÁVEL
+
+Use:
+file bin/app
+
+Resultado esperado:
+bin/app: ELF 32-bit LSB executable, ARM
+
+Isso confirma que o programa foi compilado para arquitetura ARM.
+
+
+COPIANDO O EXECUTÁVEL PARA O TFTP
+
+Use
+sudo cp bin/app /tftpboot/
+
+Depois:
+cd /tftpboot
+
+Crie o link simbólico:
+sudo ln -sf app_baremetal.bin app
+
+
+EXECUTANDO NA BBB
+
+No terminal do U-Boot execute:
+setenv app "setenv autoload no;setenv ipaddr 10.4.1.2; setenv serverip 10.4.1.1; tftp 0x80000000 app_baremetal.bin;echo ***Booting to BareMetal ***;go 0x80000000"
+
+depois:
+run app
+
+Resultado esperado:
+Loading: ####
+done
+Bytes transferred = ...
+## Starting application at 0x80000000 ...
+
+Isso indica que:
+- a BBB conseguiu acessar o servidor TFTP
+- o arquivo foi transferido corretamente
+- a aplicação ARM foi carregada na memória RAM
+- a execução do programa foi iniciada pelo U-Boot
+
+
+
+OBSERVAÇÃO IMPORTANTE
+
+Embora o programa utilize:
+
+printf("Hello World");
+
+o texto pode não aparecer na tela, pois a aplicação ainda não possui configuração de UART ou suporte completo de runtime bare metal.
+
+Mesmo sem exibir o texto, o carregamento da aplicação já comprova o funcionamento correto:
+- do cross-compilador
+- do servidor TFTP
+- da rede Ethernet
+- do U-Boot
+- da execução de aplicações ARM na BBB
+
+
+Press SPACE to abort autoboot in 2 seconds
+=> setenv ipaddr 10.4.1.2
+=> set serverip 10.4.1.1
+Unknown command 'set' - try 'help'
+=> setenv serverip 10.4.1.1
+=> ping 10.4.1.1
+link up on port 0, speed 100, full duplex
+Using cpsw device
+host 10.4.1.1 is alive
+=> setenv app "setenv autoload no;setenv ipaddr 10.4.1.2; setenv serverip 10.4.1.1; tftp 0x80000000 app_baremetal.bin;echo ***Booting to BareMetal ***;go 0x80000000"
+=> 
+
+
+#include "bbb_regs.h"
+
+static void delay() {
+    volatile unsigned int ra;
+    for (ra = 0; ra < 1000000; ra++);
+}
+
+void putCh(unsigned char c) {
+    while (!(UART0_LSR & (1 << 5)));
+
+    UART0_THR = c;
+}
+/* ----- end of function putCh ----- */
+
+unsigned int printS(unsigned char *str, unsigned int length) {
+    for (int i = 0; i < length; i++) {
+        putCh(str[i]);
+    }
+    return (length);
+} /* ----- end of function printS ----- */
+
+void _main() {
+    const char *hello = "Hello World!!!\n\r";
+    unsigned char *h = (unsigned char *)hello;
+
+    while (1) {
+        printS(h, 16);
+        delay();
+    }
+} /* ----- end of function main ----- */
+
+
+
+
+_start:
+
+    mrs r0, cpsr @Move o conteudo do CPSR para r0
+    bic r0, r0, #0x1F @Limpa os 5 bits menos significativos
+    orr r0, r0, #0x13 @Define 0x13, que corresponde ao Modo SVC
+    orr r0, r0, #0xC0 
+    msr cpsr, r0 @Escreve de volta no CPSR para aplicar
+   
+    ldr sp, = 0x4030CDFC
+
+    bl _main
+    
+
+.loop: b .loop
